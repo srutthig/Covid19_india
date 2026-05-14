@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>India COVID-19 State Analytics Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4f8;--panel:#fff;--border:#e0e0e0;
+  --primary:#1a73e8;--success:#2e7d32;--danger:#d32f2f;
+  --warning:#f57c00;--purple:#6a1b9a;--teal:#00796b;
+  --text:#1a1a2e;--sub:#666;--shadow:0 2px 8px rgba(0,0,0,.08);
+  --radius:12px;--font:'Segoe UI',system-ui,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+
+/* ── HEADER ────────────────────────────────────────── */
+#header{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  box-shadow:0 2px 12px rgba(0,0,0,.06);
+  padding:16px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.header-left h1{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.3px}
+.header-left p{font-size:12px;color:var(--sub);margin-top:2px}
+.header-pills{display:flex;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill-blue{background:#e8f0fe;color:#1a73e8}
+.pill-red{background:#fce8e6;color:#d32f2f}
+.pill-green{background:#e6f4ea;color:#2e7d32}
+
+/* ── LAYOUT ────────────────────────────────────────── */
+#body{display:grid;grid-template-columns:25% 45% 30%;gap:20px;padding:20px 24px}
+.col{display:flex;flex-direction:column;gap:16px}
+
+/* ── KPI CARDS ─────────────────────────────────────── */
+.kpi-card{
+  background:var(--panel);border-radius:var(--radius);
+  box-shadow:var(--shadow);border:1px solid var(--border);
+  padding:16px 18px;transition:box-shadow .2s,transform .2s;
+}
+.kpi-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.12);transform:translateY(-2px)}
+.kpi-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--sub)}
+.kpi-icon{font-size:22px;line-height:1}
+.kpi-value{font-size:26px;font-weight:700;letter-spacing:-1px;margin-bottom:4px}
+.kpi-sub{font-size:11px;color:var(--sub)}
+.prog-wrap{margin-top:10px;height:6px;background:#f0f0f0;border-radius:999px;overflow:hidden}
+.prog-bar{height:100%;border-radius:999px;width:0;transition:width 1.4s cubic-bezier(.23,1,.32,1)}
+
+/* ── CHART PANEL ────────────────────────────────────── */
+.chart-panel{
+  background:var(--panel);border-radius:var(--radius);
+  box-shadow:var(--shadow);border:1px solid var(--border);
+  padding:18px 20px;
+}
+.chart-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.chart-title::before{content:'';display:inline-block;width:4px;height:16px;border-radius:2px;background:currentColor}
+
+/* ── HORIZONTAL BAR CHART ───────────────────────────── */
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:default;position:relative}
+.bar-row:nth-child(even) .bar-label,.bar-row:nth-child(even) .bar-val{background:#fafafa;border-radius:3px}
+.bar-label{font-size:11px;color:var(--sub);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px}
+.bar-track{flex:1;height:18px;background:#f5f5f5;border-radius:4px;overflow:visible;position:relative}
+.bar-fill{height:100%;border-radius:4px;min-width:2px;transition:width 1s cubic-bezier(.23,1,.32,1);position:relative}
+.bar-val{font-size:10px;font-weight:600;color:var(--sub);white-space:nowrap;margin-left:4px;flex-shrink:0}
+
+/* ── GROUPED BAR ────────────────────────────────────── */
+.grouped-row{margin-bottom:10px}
+.gr-label{font-size:10px;color:var(--sub);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.gr-bars{display:flex;gap:3px;height:12px}
+.gr-bar{border-radius:3px;min-width:2px;transition:width 1s cubic-bezier(.23,1,.32,1)}
+
+/* ── DONUT ──────────────────────────────────────────── */
+.donuts-row{display:flex;gap:16px;justify-content:space-around;align-items:center;padding:8px 0}
+.donut-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.donut-svg{width:110px;height:110px}
+.donut-label{font-size:11px;color:var(--sub);text-align:center}
+
+/* ── TOOLTIP ────────────────────────────────────────── */
+#tip{
+  position:fixed;background:#1a1a2e;color:#fff;
+  font-size:11px;padding:8px 12px;border-radius:8px;
+  pointer-events:none;opacity:0;z-index:9999;max-width:220px;
+  line-height:1.6;transition:opacity .12s;
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+}
+#tip strong{color:#7dd3fc;display:block;margin-bottom:2px}
+
+/* ── SECTION DIVIDER ─────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:4px 24px}
+
+/* ── BOTTOM TABLE ────────────────────────────────────── */
+#bottom{padding:0 24px 28px}
+.table-panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden}
+.table-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.table-header-title{font-size:14px;font-weight:700;color:var(--text)}
+#search{
+  border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;font-size:12px;font-family:var(--font);
+  color:var(--text);outline:none;width:220px;background:#fafafa;
+  transition:border-color .2s,box-shadow .2s;
+}
+#search:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{background:#f8fafc;position:sticky;top:0;z-index:10}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;
+   text-transform:uppercase;letter-spacing:.06em;color:var(--sub);
+   cursor:pointer;white-space:nowrap;user-select:none;border-bottom:2px solid var(--border)}
+th:hover{color:var(--primary)}
+th.sort-asc::after{content:' ↑';color:var(--primary)}
+th.sort-desc::after{content:' ↓';color:var(--primary)}
+td{padding:9px 14px;border-bottom:1px solid #f0f0f0;white-space:nowrap}
+tr:nth-child(even) td{background:#fafbfd}
+tr:hover td{background:#f0f7ff}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.badge-high{background:#ffebee;color:#c62828}
+.badge-med{background:#fff3e0;color:#e65100}
+.badge-low{background:#e8f5e9;color:#1b5e20}
+
+/* ── VACCINATION STACKED ─────────────────────────────── */
+.stack-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.stack-label{font-size:10px;color:var(--sub);width:110px;flex-shrink:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px}
+.stack-track{flex:1;height:14px;background:#f5f5f5;border-radius:4px;display:flex;overflow:hidden}
+.stack-seg{height:100%;transition:width 1s cubic-bezier(.23,1,.32,1)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP -->
+<div id="tip"></div>
+
+<!-- ══ HEADER ══════════════════════════════════════════ -->
+<div id="header">
+  <div class="header-left">
+    <h1>🇮🇳 India COVID-19 State Analytics Dashboard</h1>
+    <p>Comprehensive Pandemic &amp; Vaccination Overview · MoHFW India</p>
+  </div>
+  <div class="header-pills">
+    <span class="pill pill-blue">🦠 Confirmed: <strong>4.47 Cr</strong></span>
+    <span class="pill pill-red">💀 Deaths: <strong>5.31 L</strong></span>
+    <span class="pill pill-green">💉 Doses: <strong>219.6 Cr</strong></span>
+  </div>
+</div>
+
+<!-- ══ MAIN BODY ════════════════════════════════════════ -->
+<div id="body">
+
+  <!-- LEFT: KPI CARDS -->
+  <div class="col" id="kpi-col">
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Total Confirmed</div><div class="kpi-value" style="color:#1a73e8" data-target="44677915" id="v0">0</div></div>
+        <div class="kpi-icon">🦠</div>
+      </div>
+      <div class="kpi-sub">Total cases since pandemic began</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Total Active</div><div class="kpi-value" style="color:#f57c00" data-target="3552" id="v1">0</div></div>
+        <div class="kpi-icon">⚡</div>
+      </div>
+      <div class="kpi-sub">Currently active cases</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Total Deaths</div><div class="kpi-value" style="color:#d32f2f" data-target="530698" id="v2">0</div></div>
+        <div class="kpi-icon">❤️</div>
+      </div>
+      <div class="kpi-sub">Total fatalities recorded</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Total Recovered</div><div class="kpi-value" style="color:#2e7d32" data-target="44143665" id="v3">0</div></div>
+        <div class="kpi-icon">✅</div>
+      </div>
+      <div class="kpi-sub">Successfully recovered</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Recovery Rate</div><div class="kpi-value" style="color:#00796b">98.8%</div></div>
+        <div class="kpi-icon">📈</div>
+      </div>
+      <div class="kpi-sub">National recovery percentage</div>
+      <div class="prog-wrap"><div class="prog-bar" style="background:#00796b" data-pct="98.8"></div></div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Death Rate</div><div class="kpi-value" style="color:#c62828">1.19%</div></div>
+        <div class="kpi-icon">📉</div>
+      </div>
+      <div class="kpi-sub">National fatality rate</div>
+      <div class="prog-wrap"><div class="prog-bar" style="background:#c62828" data-pct="1.19"></div></div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Total Doses</div><div class="kpi-value" style="color:#1565c0;font-size:20px" data-target="2195537736" id="v4">0</div></div>
+        <div class="kpi-icon">💉</div>
+      </div>
+      <div class="kpi-sub">Total vaccine doses administered</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <div><div class="kpi-label">Dose 1 Coverage</div><div class="kpi-value" style="color:#6a1b9a" id="d1cov">—</div></div>
+        <div class="kpi-icon">1️⃣</div>
+      </div>
+      <div class="kpi-sub">% of population received Dose 1</div>
+      <div class="prog-wrap"><div class="prog-bar" style="background:#6a1b9a" id="d1bar" data-pct="0"></div></div>
+    </div>
+
+  </div>
+
+  <!-- CENTER: CHARTS -->
+  <div class="col">
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#1a73e8">Top 10 States — Confirmed Cases</div>
+      <div id="chart-confirmed"></div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#f57c00">Active Cases by State (Top 10)</div>
+      <div id="chart-active"></div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#2e7d32">Recovery vs Deaths — Top 10 States</div>
+      <div id="chart-rv"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: VACCINATION -->
+  <div class="col">
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#1565c0">Vaccination — Dose Breakdown (Top 10 States)</div>
+      <div id="chart-vacc"></div>
+      <div class="legend" id="vacc-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#42a5f5"></div>Dose 1</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#1a73e8"></div>Dose 2</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#0d47a1"></div>Dose 3</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7c4dff"></div>Precaution</div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#00796b">Vaccination Coverage %</div>
+      <div class="donuts-row">
+        <div class="donut-wrap">
+          <svg class="donut-svg" viewBox="0 0 110 110" id="d-dose1">
+            <circle cx="55" cy="55" r="42" fill="none" stroke="#f0f0f0" stroke-width="14"/>
+            <circle cx="55" cy="55" r="42" fill="none" stroke="#42a5f5" stroke-width="14"
+              stroke-dasharray="0 263.9" stroke-linecap="round"
+              transform="rotate(-90 55 55)" id="d1-arc" style="transition:stroke-dasharray 1.4s cubic-bezier(.23,1,.32,1)"/>
+            <text x="55" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e" font-family="Segoe UI,sans-serif" id="d1-pct">—</text>
+            <text x="55" y="66" text-anchor="middle" font-size="8" fill="#666" font-family="Segoe UI,sans-serif">Dose 1</text>
+          </svg>
+          <div class="donut-label">First Dose Coverage</div>
+        </div>
+        <div class="donut-wrap">
+          <svg class="donut-svg" viewBox="0 0 110 110" id="d-dose2">
+            <circle cx="55" cy="55" r="42" fill="none" stroke="#f0f0f0" stroke-width="14"/>
+            <circle cx="55" cy="55" r="42" fill="none" stroke="#1a73e8" stroke-width="14"
+              stroke-dasharray="0 263.9" stroke-linecap="round"
+              transform="rotate(-90 55 55)" id="d2-arc" style="transition:stroke-dasharray 1.4s cubic-bezier(.23,1,.32,1)"/>
+            <text x="55" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e" font-family="Segoe UI,sans-serif" id="d2-pct">—</text>
+            <text x="55" y="66" text-anchor="middle" font-size="8" fill="#666" font-family="Segoe UI,sans-serif">Dose 2</text>
+          </svg>
+          <div class="donut-label">Second Dose Coverage</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-title" style="color:#ab47bc">COVID Cases per Million Population (Top 10)</div>
+      <div id="chart-cpm"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ══ BOTTOM TABLE ═════════════════════════════════════ -->
+<div id="bottom">
+  <div class="table-panel">
+    <div class="table-header">
+      <div class="table-header-title">📊 State-wise Risk &amp; Vaccination Summary</div>
+      <input type="text" id="search" placeholder="🔍 Search state…">
+    </div>
+    <div class="tbl-wrap">
+      <table id="risk-table">
+        <thead>
+          <tr>
+            <th data-col="state">State</th>
+            <th data-col="confirmed">Confirmed</th>
+            <th data-col="deaths">Deaths</th>
+            <th data-col="dr">Death Rate %</th>
+            <th data-col="rr">Recovery Rate %</th>
+            <th data-col="total_doses">Total Doses</th>
+            <th data-col="dph">Doses / 100 Pop</th>
+            <th data-col="risk">Risk Level</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ DATA ══════════════════════════════════════════════
+const states = [
+  {state:"Andaman and Nicobar",confirmed:10742,active:1,deaths:129,passive:10612,dose1:284737,dose2:262460,dose3:97138,precaution_dose:346928,total_doses:991263,population:426251},
+  {state:"Andhra Pradesh",confirmed:2339067,active:3,deaths:14733,passive:2324331,dose1:43345486,dose2:38548615,dose3:12040350,precaution_dose:16622305,total_doses:110556756,population:52883163},
+  {state:"Arunachal Pradesh",confirmed:66890,active:0,deaths:296,passive:66594,dose1:763345,dose2:649390,dose3:201358,precaution_dose:297667,total_doses:1911760,population:1528296},
+  {state:"Assam",confirmed:746100,active:0,deaths:8035,passive:738065,dose1:21653464,dose2:18163498,dose3:4582339,precaution_dose:5885412,total_doses:50284713,population:34586234},
+  {state:"Bihar",confirmed:851379,active:15,deaths:12302,passive:839062,dose1:71937864,dose2:59768082,dose3:11529456,precaution_dose:13961639,total_doses:157197041,population:119461013},
+  {state:"Chandigarh",confirmed:99348,active:6,deaths:1181,passive:98161,dose1:1114683,dose2:908837,dose3:142358,precaution_dose:116403,total_doses:2282281,population:1182104},
+  {state:"Chhattisgarh",confirmed:1177749,active:6,deaths:14146,passive:1163597,dose1:20856949,dose2:17782991,dose3:4421785,precaution_dose:6087266,total_doses:49148991,population:28566990},
+  {state:"Dadra and Nagar Haveli",confirmed:11591,active:0,deaths:4,passive:11587,dose1:691674,dose2:595652,dose3:145328,precaution_dose:145838,total_doses:1578492,population:657391},
+  {state:"Delhi",confirmed:2007188,active:35,deaths:26521,passive:1980632,dose1:16864532,dose2:14496736,dose3:3118564,precaution_dose:2886708,total_doses:37366540,population:18802494},
+  {state:"Goa",confirmed:259079,active:26,deaths:4013,passive:255040,dose1:1289873,dose2:1097509,dose3:254818,precaution_dose:230382,total_doses:2872582,population:1542750},
+  {state:"Gujarat",confirmed:1277557,active:41,deaths:11043,passive:1266473,dose1:55292870,dose2:48073860,dose3:12151793,precaution_dose:12275472,total_doses:127793995,population:63907200},
+  {state:"Haryana",confirmed:1056602,active:43,deaths:10714,passive:1045845,dose1:19872696,dose2:17196397,dose3:4103521,precaution_dose:4284745,total_doses:45457359,population:27388008},
+  {state:"Himachal Pradesh",confirmed:312644,active:23,deaths:4213,passive:308408,dose1:6687825,dose2:5897449,dose3:1427697,precaution_dose:1265709,total_doses:15278680,population:7316708},
+  {state:"Jammu and Kashmir",confirmed:479410,active:17,deaths:4785,passive:474608,dose1:11015533,dose2:9509911,dose3:2264650,precaution_dose:1947951,total_doses:24738045,population:14046258},
+  {state:"Jharkhand",confirmed:442570,active:3,deaths:5331,passive:437236,dose1:19624730,dose2:16539672,dose3:3887420,precaution_dose:3637996,total_doses:43689818,population:37329128},
+  {state:"Karnataka",confirmed:4071893,active:1275,deaths:40307,passive:4030311,dose1:52866870,dose2:45879327,dose3:11333343,precaution_dose:10848758,total_doses:120928298,population:66165886},
+  {state:"Kerala",confirmed:6828245,active:1389,deaths:71552,passive:6755304,dose1:25417546,dose2:22261280,dose3:5326558,precaution_dose:4472608,total_doses:57477992,population:35330888},
+  {state:"Ladakh",confirmed:29412,active:3,deaths:231,passive:29178,dose1:248643,dose2:213692,dose3:57168,precaution_dose:45440,total_doses:564943,population:307204},
+  {state:"Lakshadweep",confirmed:11415,active:0,deaths:52,passive:11363,dose1:62193,dose2:55681,dose3:14523,precaution_dose:12611,total_doses:145008,population:72210},
+  {state:"Madhya Pradesh",confirmed:1054918,active:4,deaths:10776,passive:1044138,dose1:57069826,dose2:50398731,dose3:13405825,precaution_dose:12716504,total_doses:133590886,population:82342793},
+  {state:"Maharashtra",confirmed:8136588,active:164,deaths:148416,passive:7988008,dose1:77019568,dose2:66698390,dose3:18261211,precaution_dose:15699148,total_doses:177678317,population:120837347},
+  {state:"Manipur",confirmed:139922,active:0,deaths:2149,passive:137773,dose1:1475698,dose2:1246013,dose3:296469,precaution_dose:247753,total_doses:3265933,population:3008546},
+  {state:"Meghalaya",confirmed:96783,active:1,deaths:1624,passive:95158,dose1:1189929,dose2:1005798,dose3:224724,precaution_dose:200607,total_doses:2621058,population:3276323},
+  {state:"Mizoram",confirmed:238964,active:0,deaths:726,passive:238238,dose1:814698,dose2:691679,dose3:156182,precaution_dose:128259,total_doses:1790818,population:1205974},
+  {state:"Nagaland",confirmed:35986,active:0,deaths:782,passive:35204,dose1:795974,dose2:672073,dose3:150463,precaution_dose:119044,total_doses:1737554,population:2189297},
+  {state:"Odisha",confirmed:1336552,active:91,deaths:9205,passive:1327256,dose1:36107933,dose2:31206807,dose3:7552538,precaution_dose:6578196,total_doses:81445474,population:45429399},
+  {state:"Puducherry",confirmed:175508,active:5,deaths:1975,passive:173528,dose1:1018887,dose2:882079,dose3:206178,precaution_dose:165473,total_doses:2272617,population:1397707},
+  {state:"Punjab",confirmed:784205,active:49,deaths:19289,passive:764867,dose1:21116696,dose2:18110735,dose3:4238618,precaution_dose:3504251,total_doses:46970300,population:29611935},
+  {state:"Rajasthan",confirmed:1315455,active:88,deaths:9653,passive:1305714,dose1:51015498,dose2:43708655,dose3:10713403,precaution_dose:9887503,total_doses:115325059,population:78230816},
+  {state:"Sikkim",confirmed:44319,active:1,deaths:499,passive:43819,dose1:613749,dose2:530530,dose3:112834,precaution_dose:103331,total_doses:1360444,population:671720},
+  {state:"Tamil Nadu",confirmed:3594388,active:60,deaths:38049,passive:3556279,dose1:57045443,dose2:49753617,dose3:11338528,precaution_dose:9305059,total_doses:127442647,population:76481545},
+  {state:"Telengana",confirmed:841324,active:71,deaths:4111,passive:837142,dose1:34214954,dose2:29539751,dose3:7227698,precaution_dose:6219306,total_doses:77201709,population:38472769},
+  {state:"Tripura",confirmed:108034,active:0,deaths:940,passive:107094,dose1:2681795,dose2:2289596,dose3:551987,precaution_dose:392934,total_doses:5916312,population:4057847},
+  {state:"Uttar Pradesh",confirmed:2128103,active:46,deaths:23633,passive:2104424,dose1:172498947,dose2:149404203,dose3:37163916,precaution_dose:31572431,total_doses:390639497,population:228959599},
+  {state:"Uttarakhand",confirmed:449379,active:28,deaths:7751,passive:441600,dose1:8958950,dose2:7758563,dose3:1870464,precaution_dose:1463737,total_doses:20051714,population:11090425},
+  {state:"West Bengal",confirmed:2118606,active:58,deaths:21532,passive:2097016,dose1:70174989,dose2:60619857,dose3:13640597,precaution_dose:11527397,total_doses:155962840,population:97694960}
+];
+
+// ══ UTILS ══════════════════════════════════════════════
+const fmt = n => n.toLocaleString('en-IN');
+const pct = (a,b) => b ? (a/b*100).toFixed(2) : '0.00';
+const tip = document.getElementById('tip');
+let tipTimer;
+
+function showTip(e, html){
+  clearTimeout(tipTimer);
+  tip.innerHTML = html;
+  tip.style.opacity = '1';
+  moveTip(e);
+}
+function moveTip(e){
+  let x = e.clientX + 14, y = e.clientY - 10;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  if(x + tw > window.innerWidth - 8) x = e.clientX - tw - 14;
+  if(y + th > window.innerHeight - 8) y = e.clientY - th - 10;
+  tip.style.left = x + 'px';
+  tip.style.top  = y + 'px';
+}
+function hideTip(){ tipTimer = setTimeout(()=>tip.style.opacity='0', 120) }
+document.addEventListener('mousemove', e => { if(tip.style.opacity==='1') moveTip(e) });
+
+// ══ COUNT-UP ═══════════════════════════════════════════
+function countUp(el, target, dur=2000){
+  const ease = t => 1 - Math.pow(1-t,4);
+  const start = performance.now();
+  const tick = now => {
+    const p = Math.min((now-start)/dur, 1);
+    el.textContent = fmt(Math.round(ease(p)*target));
+    if(p < 1) requestAnimationFrame(tick);
+    else el.textContent = fmt(target);
+  };
+  requestAnimationFrame(tick);
+}
+
+// ══ HORIZONTAL BAR ════════════════════════════════════
+function buildHBar(container, data, colorFn, ttFn){
+  const max = Math.max(...data.map(d=>d.value));
+  container.innerHTML = '';
+  data.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    const pct = (d.value/max*100).toFixed(1);
+    row.innerHTML = `
+      <div class="bar-label" title="${d.label}">${d.label}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:0%;background:${typeof colorFn==='function'?colorFn(d):colorFn}" data-w="${pct}"></div>
+      </div>
+      <div class="bar-val">${fmt(d.value)}</div>`;
+    const fill = row.querySelector('.bar-fill');
+    fill.addEventListener('mouseenter', e => showTip(e, ttFn(d)));
+    fill.addEventListener('mouseleave', hideTip);
+    row.querySelector('.bar-label').addEventListener('mouseenter', e => showTip(e, ttFn(d)));
+    row.querySelector('.bar-label').addEventListener('mouseleave', hideTip);
+    container.appendChild(row);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>fill.style.width=pct+'%'));
+  });
+}
+
+// ══ BUILD CHARTS ══════════════════════════════════════
+
+// Chart 1: Top 10 Confirmed
+const top10conf = [...states].sort((a,b)=>b.confirmed-a.confirmed).slice(0,10);
+buildHBar(
+  document.getElementById('chart-confirmed'),
+  top10conf.map(d=>({label:d.state, value:d.confirmed, raw:d})),
+  d => {
+    const idx = top10conf.findIndex(s=>s.state===d.raw.state);
+    const blues = ['#1a73e8','#1e7ae8','#2381e8','#2888e8','#2d90e8','#3297e8','#379ee8','#3ca5e8','#41ace8','#46b4e8'];
+    return blues[idx] || '#1a73e8';
+  },
+  d => `<strong>${d.raw.state}</strong>Confirmed: ${fmt(d.raw.confirmed)}<br>Active: ${fmt(d.raw.active)}<br>Deaths: ${fmt(d.raw.deaths)}<br>Recovered: ${fmt(d.raw.passive)}`
+);
+
+// Chart 2: Active top 10
+const top10act = [...states].sort((a,b)=>b.active-a.active).slice(0,10);
+buildHBar(
+  document.getElementById('chart-active'),
+  top10act.map(d=>({label:d.state, value:d.active, raw:d})),
+  '#f57c00',
+  d => `<strong>${d.raw.state}</strong>Active: ${fmt(d.raw.active)}<br>Confirmed: ${fmt(d.raw.confirmed)}<br>Recovered: ${fmt(d.raw.passive)}`
+);
+
+// Chart 3: Recovery vs Deaths grouped
+const top10rv = [...states].sort((a,b)=>b.confirmed-a.confirmed).slice(0,10);
+const rvCont = document.getElementById('chart-rv');
+rvCont.innerHTML = '';
+const maxRV = Math.max(...top10rv.map(d=>d.passive));
+top10rv.forEach(d => {
+  const div = document.createElement('div');
+  div.className = 'grouped-row';
+  const rw = (d.passive/maxRV*100).toFixed(1);
+  const dw = (d.deaths/maxRV*100).toFixed(1);
+  div.innerHTML = `
+    <div class="gr-label" title="${d.state}">${d.state}</div>
+    <div class="gr-bars">
+      <div class="gr-bar" style="background:#2e7d32;width:0%;flex:none" data-w="${rw}" title="Recovered: ${fmt(d.passive)}"></div>
+      <div class="gr-bar" style="background:#d32f2f;width:0%;flex:none" data-w="${dw}" title="Deaths: ${fmt(d.deaths)}"></div>
+    </div>`;
+  div.querySelectorAll('.gr-bar').forEach(bar => {
+    bar.style.width = '0px';
+    bar.addEventListener('mouseenter', e => showTip(e, `<strong>${d.state}</strong>Recovered: ${fmt(d.passive)}<br>Deaths: ${fmt(d.deaths)}<br>Death Rate: ${pct(d.deaths,d.confirmed)}%`));
+    bar.addEventListener('mouseleave', hideTip);
+  });
+  rvCont.appendChild(div);
+});
+// Animate grouped bars using track width
+const rvTrackW = 200;
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  rvCont.querySelectorAll('.gr-bar').forEach(bar=>{
+    const w = parseFloat(bar.dataset.w)/100 * rvTrackW;
+    bar.style.transition = 'width 1s cubic-bezier(.23,1,.32,1)';
+    bar.style.width = w + 'px';
+  });
+}));
+
+// Chart 4: Vaccination stacked top 10 by total_doses
+const top10vac = [...states].sort((a,b)=>b.total_doses-a.total_doses).slice(0,10);
+const vaccCont = document.getElementById('chart-vacc');
+vaccCont.innerHTML = '';
+const maxDose = Math.max(...top10vac.map(d=>d.total_doses));
+top10vac.forEach(d=>{
+  const tot = d.dose1+d.dose2+d.dose3+d.precaution_dose;
+  const segs = [
+    {v:d.dose1, c:'#42a5f5', lbl:'Dose 1'},
+    {v:d.dose2, c:'#1a73e8', lbl:'Dose 2'},
+    {v:d.dose3, c:'#0d47a1', lbl:'Dose 3'},
+    {v:d.precaution_dose, c:'#7c4dff', lbl:'Precaution'}
+  ];
+  const row = document.createElement('div');
+  row.className = 'stack-row';
+  const track = document.createElement('div');
+  track.className = 'stack-track';
+  segs.forEach(seg=>{
+    const s = document.createElement('div');
+    s.className = 'stack-seg';
+    s.style.background = seg.c;
+    s.style.width = '0%';
+    const tw = (seg.v/maxDose*100).toFixed(2);
+    s.dataset.w = tw;
+    s.addEventListener('mouseenter', e=>showTip(e,`<strong>${d.state}</strong>${seg.lbl}: ${fmt(seg.v)}<br>Total Doses: ${fmt(d.total_doses)}`));
+    s.addEventListener('mouseleave', hideTip);
+    track.appendChild(s);
+  });
+  row.innerHTML = `<div class="stack-label" title="${d.state}">${d.state}</div>`;
+  row.appendChild(track);
+  vaccCont.appendChild(row);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    track.querySelectorAll('.stack-seg').forEach(s=>{
+      s.style.transition='width 1s cubic-bezier(.23,1,.32,1)';
+      s.style.width=s.dataset.w+'%';
+    });
+  }));
+});
+
+// Donut charts
+const totalPop = states.reduce((a,s)=>a+s.population,0);
+const totalD1  = states.reduce((a,s)=>a+s.dose1,0);
+const totalD2  = states.reduce((a,s)=>a+s.dose2,0);
+const d1pct    = totalD1/totalPop*100;
+const d2pct    = totalD2/totalPop*100;
+const CIRC     = 2*Math.PI*42;
+
+function animateDonut(arcId, pctId, pct){
+  const arc  = document.getElementById(arcId);
+  const ptxt = document.getElementById(pctId);
+  let start = null;
+  const dur = 1400;
+  const ease = t=>1-Math.pow(1-t,4);
+  const tick = ts => {
+    if(!start) start=ts;
+    const p = Math.min((ts-start)/dur,1);
+    const v = ease(p)*pct;
+    const dash = (v/100)*CIRC;
+    arc.setAttribute('stroke-dasharray',`${dash} ${CIRC-dash}`);
+    ptxt.textContent = v.toFixed(1)+'%';
+    if(p<1) requestAnimationFrame(tick);
+  };
+  setTimeout(()=>requestAnimationFrame(tick), 400);
+}
+animateDonut('d1-arc','d1-pct', d1pct);
+animateDonut('d2-arc','d2-pct', d2pct);
+
+// KPI: Dose 1 coverage
+document.getElementById('d1cov').textContent = d1pct.toFixed(1)+'%';
+document.getElementById('d1bar').dataset.pct = d1pct.toFixed(2);
+
+// Chart 6: Cases per million
+const cpm = states.map(s=>({
+  label:s.state, value:Math.round(s.confirmed/s.population*1000000), raw:s
+})).sort((a,b)=>b.value-a.value).slice(0,10);
+buildHBar(
+  document.getElementById('chart-cpm'),
+  cpm,
+  '#ab47bc',
+  d=>`<strong>${d.raw.state}</strong>Cases/Million: ${fmt(d.value)}<br>Confirmed: ${fmt(d.raw.confirmed)}<br>Population: ${fmt(d.raw.population)}`
+);
+
+// ══ TABLE ════════════════════════════════════════════
+let sortCol='confirmed', sortDir=-1;
+const tableData = states.map(s=>{
+  const dr = parseFloat(pct(s.deaths,s.confirmed));
+  const rr = parseFloat(pct(s.passive,s.confirmed));
+  const dph = (s.total_doses/s.population*100).toFixed(1);
+  let risk = 'Low';
+  if(dr>2 || s.active>100) risk='High';
+  else if(dr>=1 || (s.active>=50 && s.active<=100)) risk='Medium';
+  return {...s, dr, rr, dph:parseFloat(dph), risk};
+});
+
+function renderTable(data){
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+  data.forEach(s=>{
+    const badgeCls = s.risk==='High'?'badge-high':s.risk==='Medium'?'badge-med':'badge-low';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${s.state}</strong></td>
+      <td>${fmt(s.confirmed)}</td>
+      <td>${fmt(s.deaths)}</td>
+      <td>${s.dr.toFixed(2)}%</td>
+      <td>${s.rr.toFixed(2)}%</td>
+      <td>${fmt(s.total_doses)}</td>
+      <td>${s.dph}%</td>
+      <td><span class="badge ${badgeCls}">${s.risk}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function getSorted(q=''){
+  let data = tableData.filter(s=>s.state.toLowerCase().includes(q.toLowerCase()));
+  data.sort((a,b)=>{
+    const av=a[sortCol], bv=b[sortCol];
+    if(typeof av==='string') return sortDir*(av.localeCompare(bv));
+    return sortDir*(av-bv);
+  });
+  return data;
+}
+renderTable(getSorted());
+
+document.querySelectorAll('#risk-table th').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col = th.dataset.col;
+    if(sortCol===col) sortDir*=-1; else {sortCol=col; sortDir=-1;}
+    document.querySelectorAll('#risk-table th').forEach(t=>t.className='');
+    th.className = sortDir===-1?'sort-desc':'sort-asc';
+    renderTable(getSorted(document.getElementById('search').value));
+  });
+});
+document.getElementById('search').addEventListener('input', e=>{
+  renderTable(getSorted(e.target.value));
+});
+
+// ══ COUNT-UP ANIMATIONS ════════════════════════════════
+[['v0',44677915],['v1',3552],['v2',530698],['v3',44143665],['v4',2195537736]].forEach(([id,n])=>{
+  const el = document.getElementById(id);
+  if(el) setTimeout(()=>countUp(el,n,2200),200);
+});
+
+// ══ PROGRESS BARS ══════════════════════════════════════
+setTimeout(()=>{
+  document.querySelectorAll('.prog-bar').forEach(bar=>{
+    const p = parseFloat(bar.dataset.pct);
+    bar.style.width = Math.min(p, 100)+'%';
+  });
+},300);
+
+// ══ HORIZONTAL BARS deferred animate ══════════════════
+// (triggered via requestAnimationFrame inside buildHBar)
+</script>
+</body>
+</html>
